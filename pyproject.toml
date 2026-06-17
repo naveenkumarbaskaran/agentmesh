@@ -1,5 +1,5 @@
 [project]
-name = "agentmesh-py"
+name = "agentmesh-bus"
 version = "0.1.0"
 description = "Agent-native event bus — connect agents, humans, and systems via typed events"
 readme = "README.md"

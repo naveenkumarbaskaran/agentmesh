@@ -1,5 +1,5 @@
-from agentmesh.filter import EventFilter
 from agentmesh.event import AgentEvent
+from agentmesh.filter import EventFilter
 
 
 def make_event(**kwargs) -> AgentEvent:

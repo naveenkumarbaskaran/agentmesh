@@ -45,7 +45,7 @@ class InProcessTransport(Transport):
             try:
                 event = await asyncio.wait_for(self._queue.get(), timeout=0.1)
                 await self._deliver(event)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break

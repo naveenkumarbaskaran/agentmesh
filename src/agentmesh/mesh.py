@@ -157,7 +157,7 @@ class AgentMesh:
                            publisher_id=publisher_id, session_id=session_id, run_id=run_id)
         try:
             return await asyncio.wait_for(fut, timeout=timeout_s)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return fallback
         finally:
             self.unsubscribe(reply_topic, _reply)

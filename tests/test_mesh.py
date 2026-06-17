@@ -1,7 +1,9 @@
 import asyncio
+
 import pytest
-from agentmesh.mesh import AgentMesh
+
 from agentmesh.event import AgentEvent
+from agentmesh.mesh import AgentMesh
 
 
 @pytest.fixture

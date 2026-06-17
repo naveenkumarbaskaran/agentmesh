@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Any
+
 from agentmesh.event import AgentEvent
 
 
@@ -19,12 +21,18 @@ def _get_nested(obj: Any, path: str) -> Any:
 def _matches_condition(actual: Any, condition: Any) -> bool:
     if isinstance(condition, dict):
         for op, value in condition.items():
-            if op == "$gt" and (actual is None or actual <= value): return False
-            elif op == "$lt" and (actual is None or actual >= value): return False
-            elif op == "$gte" and (actual is None or actual < value): return False
-            elif op == "$lte" and (actual is None or actual > value): return False
-            elif op == "$in" and actual not in value: return False
-            elif op == "$ne" and actual == value: return False
+            if op == "$gt" and (actual is None or actual <= value):
+                return False
+            elif op == "$lt" and (actual is None or actual >= value):
+                return False
+            elif op == "$gte" and (actual is None or actual < value):
+                return False
+            elif op == "$lte" and (actual is None or actual > value):
+                return False
+            elif op == "$in" and actual not in value:
+                return False
+            elif op == "$ne" and actual == value:
+                return False
         return True
     return actual == condition
 

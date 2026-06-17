@@ -1,6 +1,7 @@
 import pytest
-from agentmesh.router import Router
+
 from agentmesh.event import AgentEvent
+from agentmesh.router import Router
 
 
 def make_event(topic: str, **kwargs) -> AgentEvent:

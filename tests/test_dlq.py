@@ -1,5 +1,4 @@
-import pytest
-from agentmesh.dlq import DeadLetterQueue, DeadEvent
+from agentmesh.dlq import DeadLetterQueue
 from agentmesh.event import AgentEvent
 from agentmesh.topic import TopicConfig
 

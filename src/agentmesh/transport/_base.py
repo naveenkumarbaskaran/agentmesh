@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from typing import Any
+
 from agentmesh.event import AgentEvent
 
 Handler = Callable[[AgentEvent], Coroutine[Any, Any, None]]

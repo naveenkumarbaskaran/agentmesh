@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>agentmesh — Agent-native event bus</title>
+  <meta name="description" content="Connect agents, humans, and systems via typed events. Pub/sub, consumer groups, replay, DLQ, NATS wildcards, OTel. Zero-dep core."/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #020818; --bg-card: #060e2a; --bg-sidebar: #04091e;
+      --border: #0f1e3a; --cyan: #06b6d4; --blue: #3b82f6; --violet: #8b5cf6;
+      --green: #22c55e; --text: #e2e8f0; --muted: #64748b; --secondary: #94a3b8;
+      --sidebar-w: 260px; --header-h: 60px;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter','Segoe UI',system-ui,sans-serif; font-size: 15px; line-height: 1.7; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #1a2a4a; border-radius: 3px; }
+
+    /* ── HEADER ── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+      background: rgba(2,8,24,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 1.5rem; z-index: 100; gap: 1rem;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo svg { width: 28px; height: 28px; }
+    .logo-text { font-size: 1.1rem; font-weight: 700; background: linear-gradient(90deg,var(--cyan),var(--blue),var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .logo-version { font-size: 0.7rem; color: var(--muted); background: var(--bg-card); border: 1px solid var(--border); padding: 2px 8px; border-radius: 20px; -webkit-text-fill-color: var(--muted); }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+    .header-right a { color: var(--secondary); font-size: 0.9rem; text-decoration: none; transition: color .2s; }
+    .header-right a:hover { color: var(--cyan); }
+    .github-btn { display: flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; color: var(--text) !important; font-size: 0.85rem !important; }
+    .github-btn:hover { border-color: var(--blue) !important; color: var(--blue) !important; }
+    .hamburger { display: none; cursor: pointer; background: none; border: none; color: var(--text); font-size: 1.3rem; }
+
+    /* ── SIDEBAR ── */
+    aside {
+      position: fixed; top: var(--header-h); left: 0; bottom: 0;
+      width: var(--sidebar-w); background: var(--bg-sidebar);
+      border-right: 1px solid var(--border); overflow-y: auto;
+      padding: 1.5rem 0; z-index: 90; transition: transform .25s;
+    }
+    .nav-section { padding: 0.4rem 1.5rem 0.2rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-top: 1rem; }
+    aside a { display: block; padding: 0.45rem 1.5rem; color: var(--secondary); text-decoration: none; font-size: 0.88rem; border-left: 2px solid transparent; transition: all .15s; }
+    aside a:hover { color: var(--cyan); background: rgba(6,182,212,.05); border-left-color: rgba(6,182,212,.3); }
+    aside a.active { color: var(--cyan); background: rgba(6,182,212,.08); border-left-color: var(--cyan); font-weight: 500; }
+    aside a.sub { padding-left: 2.5rem; font-size: 0.83rem; }
+
+    /* ── MAIN ── */
+    main { margin-left: var(--sidebar-w); padding-top: var(--header-h); min-height: 100vh; }
+    .content { max-width: 860px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+    /* ── HERO ── */
+    .hero-section { text-align: center; padding: 3rem 0 2rem; }
+    .hero-section img { max-width: 100%; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 0 60px rgba(59,130,246,.15); }
+    .hero-section h1 { font-size: clamp(1.8rem,4vw,2.8rem); font-weight: 800; margin-bottom: 1rem; background: linear-gradient(90deg,var(--cyan),var(--blue),var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-section p { color: var(--secondary); font-size: 1.1rem; max-width: 560px; margin: 0 auto 2rem; }
+    .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
+    .badges img { height: 20px; }
+    .hero-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn { padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: .9rem; text-decoration: none !important; transition: opacity .2s; display: inline-block; }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-secondary { background: transparent; color: var(--cyan); border: 1px solid var(--cyan); }
+    .btn:hover { opacity: .85; }
+
+    /* ── SECTIONS ── */
+    section { margin-bottom: 4rem; scroll-margin-top: calc(var(--header-h) + 1rem); }
+    h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: .75rem; color: var(--text); padding-bottom: .5rem; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 .5rem; color: var(--cyan); }
+    p { color: var(--secondary); margin-bottom: 1rem; }
+    ul, ol { color: var(--secondary); padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: .3rem; }
+    code { font-family: 'Fira Code','SF Mono',monospace; font-size: .85em; background: rgba(59,130,246,.1); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; color: var(--cyan); }
+    pre { margin: 1rem 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: .88rem; }
+    .hljs { padding: 1.25rem 1.5rem !important; background: #0d1117 !important; }
+
+    /* ── CALLOUTS ── */
+    .callout { padding: 1rem 1.25rem; border-radius: 8px; border-left: 3px solid; margin: 1.5rem 0; }
+    .callout-info { background: rgba(59,130,246,.07); border-color: var(--blue); color: var(--secondary); }
+    .callout-tip  { background: rgba(34,197,94,.07);  border-color: var(--green);  color: var(--secondary); }
+    .callout strong { display: block; margin-bottom: .25rem; }
+    .callout-info strong { color: var(--blue); }
+    .callout-tip  strong { color: var(--green); }
+
+    /* ── TABLES ── */
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; margin: 1rem 0 1.5rem; }
+    th { text-align: left; padding: 10px 14px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.04); color: var(--secondary); }
+    tr:hover td { background: rgba(59,130,246,.03); }
+    .yes { color: var(--green); font-weight: 600; }
+    .no  { color: rgba(148,163,184,.4); }
+
+    /* ── FEATURE GRID ── */
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 1rem; margin: 1.5rem 0; }
+    .feature-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; transition: border-color .2s; }
+    .feature-card:hover { border-color: rgba(59,130,246,.35); }
+    .feature-card .icon { font-size: 1.4rem; margin-bottom: .6rem; }
+    .feature-card h4 { font-size: .95rem; font-weight: 600; color: var(--cyan); margin-bottom: .4rem; }
+    .feature-card p { font-size: .87rem; margin: 0; color: var(--muted); }
+
+    /* ── PREV/NEXT NAV ── */
+    .page-nav { display: flex; justify-content: space-between; gap: 1rem; margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border); }
+    .page-nav a { display: flex; flex-direction: column; padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; text-decoration: none; flex: 1; max-width: 260px; transition: border-color .2s; }
+    .page-nav a:hover { border-color: var(--blue); }
+    .page-nav .label { font-size: .75rem; color: var(--muted); margin-bottom: .2rem; }
+    .page-nav .title { font-size: .95rem; font-weight: 600; color: var(--cyan); }
+    .page-nav .next { text-align: right; margin-left: auto; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      aside { transform: translateX(-100%); }
+      aside.open { transform: translateX(0); }
+      main { margin-left: 0; }
+      .content { padding: 2rem 1.25rem 4rem; }
+      .hamburger { display: block; }
+      .page-nav { flex-direction: column; }
+      .page-nav a { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <button class="hamburger" onclick="document.querySelector('aside').classList.toggle('open')" aria-label="Menu">☰</button>
+  <a class="logo" href="#">
+    <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#050d2a"/><circle cx="16" cy="16" r="4" fill="#3b82f6"/><circle cx="6" cy="10" r="3" fill="#06b6d4"/><circle cx="26" cy="10" r="3" fill="#8b5cf6"/><circle cx="6" cy="22" r="3" fill="#8b5cf6"/><circle cx="26" cy="22" r="3" fill="#06b6d4"/><line x1="16" y1="12" x2="9" y2="12" stroke="#3b82f6" stroke-width="1.2" opacity=".7"/><line x1="16" y1="12" x2="23" y2="12" stroke="#3b82f6" stroke-width="1.2" opacity=".7"/><line x1="16" y1="20" x2="9" y2="20" stroke="#3b82f6" stroke-width="1.2" opacity=".7"/><line x1="16" y1="20" x2="23" y2="20" stroke="#3b82f6" stroke-width="1.2" opacity=".7"/><line x1="9" y1="12" x2="9" y2="20" stroke="#06b6d4" stroke-width=".8" opacity=".5"/><line x1="23" y1="12" x2="23" y2="20" stroke="#8b5cf6" stroke-width=".8" opacity=".5"/></svg>
+    <span class="logo-text">agentmesh</span>
+    <span class="logo-version">v0.1.0</span>
+  </a>
+  <div class="header-right">
+    <a href="#install">Install</a>
+    <a href="#quickstart">Quickstart</a>
+    <a class="github-btn" href="https://github.com/naveenkumarbaskaran/agentmesh" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="nav-section">Getting Started</div>
+  <a href="#overview" class="active">Overview</a>
+  <a href="#install">Installation</a>
+  <a href="#quickstart">Quickstart</a>
+  <a href="#why">Why AgentMesh</a>
+
+  <div class="nav-section">Core Concepts</div>
+  <a href="#event-envelope">Event Envelope</a>
+  <a href="#topics">Topics &amp; Wildcards</a>
+  <a href="#publishers">Publisher Types</a>
+  <a href="#consumer-groups">Consumer Groups</a>
+
+  <div class="nav-section">Features</div>
+  <a href="#replay">Replay</a>
+  <a href="#dlq">Dead Letter Queue</a>
+  <a href="#filters">Server-side Filters</a>
+  <a href="#dedup">Idempotency</a>
+  <a href="#pause-resume">Pause / Resume</a>
+  <a href="#hitl">Human-in-the-Loop</a>
+
+  <div class="nav-section">Transports</div>
+  <a href="#transport-inprocess">In-Process (default)</a>
+  <a href="#transport-redis">Redis</a>
+  <a href="#transport-kafka">Kafka</a>
+
+  <div class="nav-section">Integrations</div>
+  <a href="#otel">OpenTelemetry</a>
+  <a href="#agentplane">agentplane</a>
+  <a href="#agenthooks">agenthooks</a>
+
+  <div class="nav-section">Reference</div>
+  <a href="#taxonomy">14 Event Categories</a>
+  <a href="#api">API Reference</a>
+  <a href="#examples">Examples</a>
+
+  <div class="nav-section">Project</div>
+  <a href="#stack">The Stack</a>
+  <a href="https://github.com/naveenkumarbaskaran/agentmesh" target="_blank">GitHub ↗</a>
+  <a href="https://pypi.org/project/agentmesh-py/" target="_blank">PyPI ↗</a>
+</aside>
+
+<!-- Main content -->
+<main>
+<div class="content">
+
+  <!-- Hero -->
+  <section id="overview" class="hero-section">
+    <img src="https://raw.githubusercontent.com/naveenkumarbaskaran/agentmesh/master/assets/banner.svg" alt="agentmesh banner"/>
+    <h1>Agent-native event bus.</h1>
+    <p>Connect agents, humans, and systems via typed events. Every event carries tenant, trace, causality, and context — not just bytes.</p>
+    <div class="badges">
+      <img src="https://github.com/naveenkumarbaskaran/agentmesh/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+      <img src="https://img.shields.io/pypi/v/agentmesh-py.svg" alt="PyPI"/>
+      <img src="https://img.shields.io/pypi/pyversions/agentmesh-py.svg" alt="Python"/>
+      <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
+    </div>
+    <div class="hero-btns">
+      <a class="btn btn-primary" href="#install">Get started</a>
+      <a class="btn btn-secondary" href="https://github.com/naveenkumarbaskaran/agentmesh">GitHub</a>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section id="install">
+    <h2>Installation</h2>
+    <pre><code class="language-bash">pip install agentmesh-py                    # zero-dep core
+pip install "agentmesh-py[redis]"           # Redis Streams transport
+pip install "agentmesh-py[nats]"            # NATS JetStream transport
+pip install "agentmesh-py[kafka]"           # Kafka transport (aiokafka)
+pip install "agentmesh-py[sqlite]"          # SQLite event store
+pip install "agentmesh-py[otel]"            # OpenTelemetry metrics + traces
+pip install "agentmesh-py[all]"             # everything</code></pre>
+    <div class="callout callout-tip">
+      <strong>Zero deps to start</strong>
+      The in-process transport and JSONL store require no external infrastructure. Start locally, graduate to Redis or Kafka when you need scale.
+    </div>
+  </section>
+
+  <!-- Quickstart -->
+  <section id="quickstart">
+    <h2>Quickstart</h2>
+    <pre><code class="language-python">import asyncio
+from agentmesh import AgentMesh, AgentEvent
+
+async def main():
+    mesh = AgentMesh()
+    await mesh.start()
+
+    # Subscribe with a wildcard — catches order.created, order.updated, ...
+    @mesh.subscribe("order.*")
+    async def handle(e: AgentEvent) -> None:
+        print(f"[{e.tenant_id}] {e.event_type}: {e.data}")
+
+    # Publish — tenant-scoped, trace-correlated, causally-linked
+    await mesh.publish("order.created",
+        data={"order_id": "ORD-001", "amount": 299.99},
+        publisher_id="billing-agent",
+        session_id="sess-001", run_id="run-001",
+        tenant_id="acme",
+    )
+
+    await asyncio.sleep(0.1)
+    print(mesh.stats())
+    await mesh.close()
+
+asyncio.run(main())</code></pre>
+  </section>
+
+  <!-- Why -->
+  <section id="why">
+    <h2>Why AgentMesh</h2>
+    <p>Kafka and Redis move bytes. AgentMesh moves meaning. Use Kafka as a transport under AgentMesh when you need production scale — same API either way.</p>
+    <table>
+      <thead><tr><th></th><th>Kafka / Redis</th><th>AgentMesh</th></tr></thead>
+      <tbody>
+        <tr><td>Tenant isolation</td><td class="no">Manual bolt-on</td><td class="yes">✓ Built-in on every event</td></tr>
+        <tr><td>Trace propagation</td><td class="no">Manual</td><td class="yes">✓ trace_id propagates automatically</td></tr>
+        <tr><td>Causality chain</td><td class="no">None</td><td class="yes">✓ caused_by_event_id</td></tr>
+        <tr><td>Human publishers</td><td class="no">No concept</td><td class="yes">✓ publisher_type="human"</td></tr>
+        <tr><td>Policy enforcement</td><td class="no">External middleware</td><td class="yes">✓ agentplane integration</td></tr>
+        <tr><td>Zero-dep start</td><td class="no">Needs JVM / server</td><td class="yes">✓ pip install, run</td></tr>
+        <tr><td>Typed event taxonomy</td><td class="no">Raw bytes / strings</td><td class="yes">✓ 14 categories, 100+ types</td></tr>
+        <tr><td>Always persistent</td><td class="no">Config required</td><td class="yes">✓ JSONL by default</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Event Envelope -->
+  <section id="event-envelope">
+    <h2>Event Envelope</h2>
+    <p>Every event — regardless of type — carries this standard envelope:</p>
+    <pre><code class="language-python">@dataclass
+class AgentEvent:
+    # Identity
+    event_id:           str       # UUID — also the idempotency key
+    event_type:         str       # "order.created"
+    topic:              str       # "acme:order.created"
+    schema_version:     str       # "1.0"
+    timestamp:          float     # unix epoch
+
+    # Execution tree
+    session_id:         str       # top-level agent session
+    run_id:             str       # current operation
+    parent_run_id:      str | None  # nesting
+    caused_by_event_id: str | None  # causality chain
+
+    # OTel propagation
+    trace_id:           str | None
+    span_id:            str | None
+
+    # Source
+    publisher_id:       str       # agent_id or user_id
+    publisher_type:     str       # "agent" | "human" | "system"
+    tenant_id:          str | None
+    agent_id:           str | None
+    agent_name:         str | None
+
+    # Routing
+    delivery_mode:      str       # "broadcast" | "exclusive"
+    ttl_s:              float | None
+
+    # Payload
+    data:               dict[str, Any]
+    tags:               list[str]
+    metadata:           dict[str, Any]</code></pre>
+  </section>
+
+  <!-- Topics -->
+  <section id="topics">
+    <h2>Topics &amp; Wildcards</h2>
+    <p>Topics follow <code>category.entity.verb</code> naming. NATS-style wildcards are supported:</p>
+    <table>
+      <thead><tr><th>Pattern</th><th>Matches</th><th>Not</th></tr></thead>
+      <tbody>
+        <tr><td><code>order.created</code></td><td>Exact match</td><td>order.updated</td></tr>
+        <tr><td><code>order.*</code></td><td>order.created, order.updated</td><td>order.item.created</td></tr>
+        <tr><td><code>order.&gt;</code></td><td>order.created, order.item.created, order.item.v.updated</td><td>payment.created</td></tr>
+        <tr><td><code>*.created</code></td><td>order.created, payment.created</td><td>order.updated</td></tr>
+        <tr><td><code>&gt;</code></td><td>Everything</td><td>—</td></tr>
+        <tr><td><code>acme:order.*</code></td><td>acme:order.created (ACME only)</td><td>siemens:order.created</td></tr>
+        <tr><td><code>acme:&gt;</code></td><td>All ACME topics</td><td>siemens:*</td></tr>
+      </tbody>
+    </table>
+    <div class="callout callout-info">
+      <strong>Tenant namespacing</strong>
+      Prefix topics with <code>tenant_id:</code> for hard tenant isolation. The mesh enforces that publishers cannot publish to another tenant's namespace.
+    </div>
+  </section>
+
+  <!-- Publishers -->
+  <section id="publishers">
+    <h2>Publisher Types</h2>
+    <p>Three types of publishers — all first-class:</p>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="icon">🤖</div><h4>Agent</h4><p><code>publisher_type="agent"</code> — automated, high-frequency. Most events in production.</p></div>
+      <div class="feature-card"><div class="icon">🧑</div><h4>Human</h4><p><code>publisher_type="human"</code> — deliberate, awaited. Human decisions are audited and governed like any other event.</p></div>
+      <div class="feature-card"><div class="icon">⚙️</div><h4>System</h4><p><code>publisher_type="system"</code> — infrastructure. The mesh itself, agentplane, agentguard publish here.</p></div>
+    </div>
+  </section>
+
+  <!-- Consumer Groups -->
+  <section id="consumer-groups">
+    <h2>Consumer Groups</h2>
+    <p>Consumer groups enable competing consumers — only one subscriber in the group processes each event:</p>
+    <pre><code class="language-python"># Both workers subscribe to the same topic + group
+@mesh.subscribe("payment.initiated", group="billing-workers")
+async def worker_1(e: AgentEvent) -> None:
+    await charge_card(e.data)
+
+@mesh.subscribe("payment.initiated", group="billing-workers")
+async def worker_2(e: AgentEvent) -> None:
+    await charge_card(e.data)
+
+# Each payment event is processed by exactly ONE worker
+# Round-robin load balancing across group members</code></pre>
+    <div class="callout callout-tip">
+      <strong>Broadcast vs Exclusive</strong>
+      Default delivery is broadcast — all subscribers get every event. Add <code>group=</code> for exclusive delivery within a group.
+    </div>
+  </section>
+
+  <!-- Replay -->
+  <section id="replay">
+    <h2>Replay</h2>
+    <p>Every event is persisted before delivery. Replay any topic from any point in time:</p>
+    <pre><code class="language-python"># Replay all events
+async for event in mesh.replay("order.created"):
+    print(event.data)
+
+# Replay last 24 hours
+import time
+async for event in mesh.replay("order.created", since=time.time() - 86400):
+    print(event.data)
+
+# Replay a specific window
+async for event in mesh.replay("payment.charged",
+                               since=start_ts, until=end_ts):
+    await reconcile(event)</code></pre>
+  </section>
+
+  <!-- DLQ -->
+  <section id="dlq">
+    <h2>Dead Letter Queue</h2>
+    <pre><code class="language-python"># Configure per topic
+mesh.configure_topic("payment.initiated",
+    dlq=True,
+    max_retries=3,
+    retry_backoff_ms=500,
+)
+
+# Fire-and-forget topics don't need DLQ
+mesh.configure_topic("system.heartbeat", dlq=False)
+
+# Inspect + retry
+async for dead in mesh.dlq("payment.initiated"):
+    print(f"Failed {dead.attempts}x: {dead.error}")
+    await mesh.retry(dead)</code></pre>
+  </section>
+
+  <!-- Filters -->
+  <section id="filters">
+    <h2>Server-side Filters</h2>
+    <p>Evaluated before delivery — only matching events reach your handler:</p>
+    <pre><code class="language-python"># Only high-value orders
+@mesh.subscribe("order.created",
+    filter={"data.amount": {"$gt": 1000}, "tenant_id": "acme"})
+async def handle_big_orders(e: AgentEvent) -> None:
+    await notify_account_manager(e)
+
+# Supported operators: $gt, $lt, $gte, $lte, $in, $ne
+# Dot-notation for nested fields: "data.customer.tier"</code></pre>
+  </section>
+
+  <!-- Idempotency -->
+  <section id="dedup">
+    <h2>Idempotency</h2>
+    <p>Set a deterministic <code>event_id</code> to make publish idempotent — safe to retry on network failure:</p>
+    <pre><code class="language-python">import uuid
+
+# Deterministic ID — same order always produces same event_id
+order_event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"order.created:{order_id}"))
+
+await mesh.publish("order.created",
+    data={"order_id": order_id},
+    publisher_id="shop-agent",
+    session_id="s1", run_id="r1",
+    event_id=order_event_id,   # ← publish 10x, delivered 1x
+)</code></pre>
+  </section>
+
+  <!-- Pause/Resume -->
+  <section id="pause-resume">
+    <h2>Pause / Resume</h2>
+    <pre><code class="language-python"># Pause during deployment — queue events, don't deliver
+await mesh.pause("payment.initiated")
+
+# Deploy new billing logic here...
+
+# Resume — flush queued events to subscribers
+await mesh.resume("payment.initiated")</code></pre>
+  </section>
+
+  <!-- HITL -->
+  <section id="hitl">
+    <h2>Human-in-the-Loop</h2>
+    <pre><code class="language-python"># Human reviewer subscribes and responds
+@mesh.subscribe("human.approval.requested")
+async def reviewer(e: AgentEvent) -> None:
+    action = e.data["action"]
+    amount = e.data["amount"]
+    request_id = e.data["_request_id"]
+
+    print(f"⚠  Review required: {action} ${amount:,.2f}")
+    # In production: send to Slack/email, wait for click
+
+    await mesh.publish(f"_reply.{request_id}",
+        data={"approved": True, "approver": "alice@acme.com"},
+        publisher_id="alice", publisher_type="human",
+        session_id=e.session_id, run_id=e.run_id,
+    )
+
+# Agent awaits human decision
+response = await mesh.request(
+    "human.approval.requested",
+    data={"action": "wire_transfer", "amount": 50_000},
+    publisher_id="billing-agent",
+    session_id="sess-001", run_id="run-001",
+    timeout_s=300.0,   # 5 minutes
+    fallback=None,     # None = timeout → denied
+)</code></pre>
+  </section>
+
+  <!-- Transports -->
+  <section id="transport-inprocess">
+    <h2>Transport: In-Process (default)</h2>
+    <p>Zero external dependencies. Uses asyncio queues. Works within a single process. Perfect for development and single-service deployments.</p>
+    <pre><code class="language-python">mesh = AgentMesh()   # InProcessTransport by default</code></pre>
+  </section>
+
+  <section id="transport-redis">
+    <h2>Transport: Redis</h2>
+    <pre><code class="language-bash">pip install "agentmesh-py[redis]"</code></pre>
+    <pre><code class="language-python">from agentmesh.transport.redis import RedisTransport
+
+mesh = AgentMesh(transport=RedisTransport("redis://localhost:6379"))</code></pre>
+  </section>
+
+  <section id="transport-kafka">
+    <h2>Transport: Kafka</h2>
+    <pre><code class="language-bash">pip install "agentmesh-py[kafka]"</code></pre>
+    <pre><code class="language-python">from agentmesh.transport.kafka import KafkaTransport
+
+mesh = AgentMesh(transport=KafkaTransport(
+    brokers=["kafka:9092"],
+))</code></pre>
+    <div class="callout callout-info">
+      <strong>Same API, every transport</strong>
+      Switch from in-process to Kafka with one line. All features — wildcards, consumer groups, replay, DLQ — work identically.
+    </div>
+  </section>
+
+  <!-- OTel -->
+  <section id="otel">
+    <h2>OpenTelemetry</h2>
+    <p>Every <code>*.started</code> / <code>*.completed</code> pair maps to an OTel span. Works with Grafana, Datadog, Honeycomb, Jaeger — zero vendor lock-in.</p>
+    <pre><code class="language-python">mesh = AgentMesh(otel_enabled=True)   # default when opentelemetry-api installed
+
+# Metrics emitted automatically:
+# agentmesh.events.published   Counter  {topic, tenant_id, publisher_type}
+# agentmesh.events.delivered   Counter  {topic, tenant_id, subscriber_id}
+# agentmesh.events.failed      Counter  {topic, tenant_id, error}
+# agentmesh.delivery.latency_ms Histogram {topic}</code></pre>
+  </section>
+
+  <!-- agentplane -->
+  <section id="agentplane">
+    <h2>Integration: agentplane</h2>
+    <pre><code class="language-python">from agentplane import PolicyEngine, Policy, Selector, AllowlistRule
+
+engine = PolicyEngine()
+engine.add_policy(Policy(
+    id="mesh.policy",
+    selector=Selector(tenants=["acme"]),
+    blocking=[AllowlistRule(tools=["order.*", "payment.*"])],
+))
+
+# Policy checked before every publish and delivery
+mesh = AgentMesh(policy_engine=engine)</code></pre>
+  </section>
+
+  <!-- agenthooks -->
+  <section id="agenthooks">
+    <h2>Integration: agenthooks</h2>
+    <pre><code class="language-python">from agenthooks import HookRegistry
+from agentmesh.integrations.agenthooks import register_mesh_hooks
+
+registry = HookRegistry()
+mesh = AgentMesh()
+register_mesh_hooks(mesh, registry)
+
+# Hook points: agentmesh.before_publish, agentmesh.after_publish,
+#              agentmesh.before_deliver, agentmesh.after_deliver
+
+@registry.implement("agentmesh.before_publish")
+async def enrich(ctx):
+    return ctx.enrich("region", "eu-west-1")</code></pre>
+  </section>
+
+  <!-- Taxonomy -->
+  <section id="taxonomy">
+    <h2>14 Event Categories</h2>
+    <p>Researched across LangGraph, CrewAI, AutoGen, Anthropic, OpenAI, MCP, A2A protocol, OTel GenAI conventions, and Semantic Kernel.</p>
+    <table>
+      <thead><tr><th>Category</th><th>Description</th><th>Frameworks</th></tr></thead>
+      <tbody>
+        <tr><td><code>session.*</code></td><td>Agent session lifecycle</td><td>All</td></tr>
+        <tr><td><code>llm.*</code></td><td>LLM inference + streaming</td><td>Anthropic, OpenAI, LangGraph</td></tr>
+        <tr><td><code>tool.*</code></td><td>Tool/function execution</td><td>All</td></tr>
+        <tr><td><code>memory.*</code></td><td>Memory read/write</td><td>CrewAI, OTel</td></tr>
+        <tr><td><code>retrieval.*</code></td><td>RAG / knowledge search</td><td>LangGraph, CrewAI, OTel</td></tr>
+        <tr><td><code>human.*</code></td><td>Human-in-the-loop</td><td>CrewAI, AutoGen, MCP, A2A</td></tr>
+        <tr><td><code>agent.*</code></td><td>Reasoning + planning</td><td>CrewAI, Anthropic thinking</td></tr>
+        <tr><td><code>multiagent.*</code></td><td>Agent-to-agent coordination</td><td>A2A, AutoGen, LangGraph</td></tr>
+        <tr><td><code>connection.*</code></td><td>External service connections</td><td>MCP, A2A</td></tr>
+        <tr><td><code>resource.*</code></td><td>MCP resources</td><td>MCP</td></tr>
+        <tr><td><code>guardrail.*</code></td><td>Safety + policy enforcement</td><td>CrewAI, SK, AgentGuard</td></tr>
+        <tr><td><code>flow.*</code></td><td>Orchestration + workflow</td><td>CrewAI, LangGraph</td></tr>
+        <tr><td><code>system.*</code></td><td>Infrastructure + ops</td><td>All</td></tr>
+        <tr><td><code>push.*</code></td><td>Async webhook delivery</td><td>A2A</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- API Reference -->
+  <section id="api">
+    <h2>API Reference</h2>
+    <h3>AgentMesh</h3>
+    <pre><code class="language-python">class AgentMesh:
+    def __init__(self,
+        transport: Transport | None = None,   # default: InProcessTransport
+        store: EventStore | None = None,      # default: JsonlStore
+        store_path: str = "~/.agentmesh/events.jsonl",
+        dedup_window_s: float = 86400.0,      # 24h dedup window
+        policy_engine: Any | None = None,
+        hook_registry: Any | None = None,
+        otel_enabled: bool = True,
+    ) -> None: ...
+
+    async def start(self) -> None: ...
+    async def close(self) -> None: ...
+
+    async def publish(self, topic: str, data: dict,
+        publisher_id: str, session_id: str, run_id: str,
+        publisher_type: str = "agent",
+        event_id: str | None = None,
+        tenant_id: str | None = None,
+        caused_by_event_id: str | None = None,
+        trace_id: str | None = None,
+        tags: list[str] | None = None,
+        ttl_s: float | None = None,
+    ) -> AgentEvent: ...
+
+    def subscribe(self, topic: str,
+        group: str | None = None,
+        filter: dict | None = None,
+    ) -> Callable: ...          # use as decorator
+
+    def unsubscribe(self, topic: str, handler: Callable) -> None: ...
+
+    async def request(self, topic: str, data: dict,
+        publisher_id: str, session_id: str, run_id: str,
+        timeout_s: float = 30.0,
+        fallback: Any = None,
+    ) -> Any: ...
+
+    async def replay(self, topic: str,
+        since: float = 0.0,
+        until: float | None = None,
+    ) -> AsyncIterator[AgentEvent]: ...
+
+    def configure_topic(self, topic: str,
+        dlq: bool = True, max_retries: int = 3,
+        retry_backoff_ms: int = 500,
+        ttl_s: float | None = None,
+    ) -> None: ...
+
+    async def pause(self, topic: str) -> None: ...
+    async def resume(self, topic: str) -> None: ...
+    def stats(self) -> dict: ...
+    async def dlq(self, topic: str) -> AsyncIterator[DeadEvent]: ...
+    async def retry(self, dead: DeadEvent) -> None: ...</code></pre>
+  </section>
+
+  <!-- Examples -->
+  <section id="examples">
+    <h2>Examples</h2>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="icon">👋</div><h4>Hello Mesh</h4><p>Simplest possible example. Publish one event, subscribe, print.</p><br/><code>examples/01_hello_mesh.py</code></div>
+      <div class="feature-card"><div class="icon">👥</div><h4>Consumer Groups</h4><p>4 payment events, 2 workers — each event handled by exactly one.</p><br/><code>examples/02_consumer_groups.py</code></div>
+      <div class="feature-card"><div class="icon">🧑</div><h4>Human-in-the-Loop</h4><p>Agent requests approval, mock human reviews, mesh routes response.</p><br/><code>examples/03_human_in_the_loop.py</code></div>
+      <div class="feature-card"><div class="icon">⏮️</div><h4>Replay</h4><p>Publish 5 events, restart mesh, replay full history from JSONL.</p><br/><code>examples/04_replay.py</code></div>
+      <div class="feature-card"><div class="icon">🔗</div><h4>Multi-Agent Workflow</h4><p>order → inventory → billing → notification using causality chains.</p><br/><code>examples/05_multi_agent_workflow.py</code></div>
+    </div>
+    <pre><code class="language-bash">pip install agentmesh-py
+python examples/01_hello_mesh.py</code></pre>
+  </section>
+
+  <!-- Stack -->
+  <section id="stack">
+    <h2>The Stack</h2>
+    <p>agentmesh is the connective tissue. Every other layer emits into it or reacts to it.</p>
+    <pre><code class="language-bash">agentmesh       # event bus       connects agents, humans, systems
+agentplane      # control plane   runtime policy, versioning, escalation
+agenthooks      # extensibility   hookpoints, customer hooks
+AgentGuard      # safety          injection, PII, jailbreak
+agentregistry   # discovery       publish, version, deploy agents
+agenteval       # quality         golden, adversarial, policy tests
+agentobserve    # observability   unified dashboard</code></pre>
+  </section>
+
+  <!-- Prev/Next -->
+  <div class="page-nav">
+    <a href="#install">
+      <span class="label">← Previous</span>
+      <span class="title">Installation</span>
+    </a>
+    <a class="next" href="#quickstart">
+      <span class="label">Next →</span>
+      <span class="title">Quickstart</span>
+    </a>
+  </div>
+
+</div>
+</main>
+
+<script>
+  hljs.highlightAll();
+
+  // Active sidebar link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('aside a[href^="#"]');
+
+  function updateActive() {
+    const scrollY = window.scrollY + 80;
+    let active = null;
+    sections.forEach(s => { if (s.offsetTop <= scrollY) active = s.id; });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + active);
+    });
+  }
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+
+  // Close sidebar on mobile when link clicked
+  document.querySelectorAll('aside a').forEach(a => {
+    a.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        document.querySelector('aside').classList.remove('open');
+      }
+    });
+  });
+</script>
+</body>
+</html>

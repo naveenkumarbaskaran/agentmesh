@@ -1,0 +1,29 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install build twine && pip install -e ".[dev]" && python -m pytest tests/ -q --tb=short
+      - run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          [ "v${PKG}" = "$TAG" ] && echo "OK: $TAG" || (echo "Tag mismatch"; exit 1)
+      - run: python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true

@@ -177,7 +177,7 @@
   <a href="#transport-kafka">Kafka</a>
 
   <div class="nav-section">Integrations</div>
-  <a href="#otel">OpenTelemetry</a>
+  <a href="#otel">OpenTelemetry (Grafana, Datadog, CloudWatch)</a>
   <a href="#agentplane">agentplane</a>
   <a href="#agenthooks">agenthooks</a>
 
@@ -515,15 +515,68 @@ mesh = AgentMesh(transport=KafkaTransport(
 
   <!-- OTel -->
   <section id="otel">
-    <h2>OpenTelemetry</h2>
-    <p>Every <code>*.started</code> / <code>*.completed</code> pair maps to an OTel span. Works with Grafana, Datadog, Honeycomb, Jaeger — zero vendor lock-in.</p>
-    <pre><code class="language-python">mesh = AgentMesh(otel_enabled=True)   # default when opentelemetry-api installed
+    <h2>OpenTelemetry — Grafana, Prometheus, Datadog, CloudWatch</h2>
+    <p>AgentMesh emits standard OTel spans and metrics. Wire once to your OTel Collector — all backends receive the same data.</p>
 
-# Metrics emitted automatically:
-# agentmesh.events.published   Counter  {topic, tenant_id, publisher_type}
-# agentmesh.events.delivered   Counter  {topic, tenant_id, subscriber_id}
-# agentmesh.events.failed      Counter  {topic, tenant_id, error}
-# agentmesh.delivery.latency_ms Histogram {topic}</code></pre>
+    <pre><code class="language-bash">pip install "agentmesh-bus[otel]" opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc</code></pre>
+
+    <h3>Grafana / Prometheus</h3>
+    <pre><code class="language-python">from opentelemetry import metrics, trace
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+# Metrics → Prometheus → Grafana
+reader = PrometheusMetricReader()   # scrape at :9464/metrics
+provider = MeterProvider(metric_readers=[reader])
+metrics.set_meter_provider(provider)
+
+# Traces → Tempo → Grafana
+tracer_provider = TracerProvider()
+tracer_provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint="http://localhost:4317"))
+)
+trace.set_tracer_provider(tracer_provider)
+
+# agentmesh picks it up automatically
+from agentmesh import AgentMesh
+mesh = AgentMesh(otel_enabled=True)</code></pre>
+
+    <h3>Datadog</h3>
+    <pre><code class="language-python">from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+tracer_provider = TracerProvider()
+tracer_provider.add_span_processor(BatchSpanProcessor(
+    OTLPSpanExporter(
+        endpoint="https://trace.agent.datadoghq.com",
+        headers={"DD-API-KEY": "your-api-key"},
+    )
+))
+trace.set_tracer_provider(tracer_provider)</code></pre>
+
+    <h3>AWS CloudWatch</h3>
+    <pre><code class="language-python">from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+# Point at AWS Distro for OpenTelemetry Collector (ADOT)
+tracer_provider.add_span_processor(BatchSpanProcessor(
+    OTLPSpanExporter(endpoint="http://localhost:4317")  # ADOT collector sidecar
+))</code></pre>
+
+    <div class="callout callout-info">
+      <strong>Zero vendor lock-in</strong>
+      AgentMesh uses the OTel API — never a vendor SDK. Switch backends by changing the exporter, not the application code.
+    </div>
+
+    <h3>Metrics emitted</h3>
+    <pre><code class="language-python">agentmesh.events.published    # Counter   {topic, tenant_id, publisher_type}
+agentmesh.events.delivered    # Counter   {topic, tenant_id, subscriber_id}
+agentmesh.events.failed       # Counter   {topic, tenant_id, error}
+agentmesh.delivery.latency_ms # Histogram {topic}</code></pre>
   </section>
 
   <!-- agentplane -->
